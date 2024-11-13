@@ -28,12 +28,20 @@ def main():
     async def response_followup(interaction: discord.Interaction, content: str):
         await (await interaction.original_response()).edit(content=content)
 
+    async def mod_log(guild: discord.Guild, message: str):
+        await guild.text_channels[0].send(message, allowed_mentions = discord.AllowedMentions(users=False))
+
+    async def build_log(initiator: discord.User, target: discord.User, action: str, reason: str = None, extra: str = None):
+        reason = f" with reason `{reason}`" if reason else ""
+        extra = f" {extra}" if extra else ""
+        return f"{initiator.mention} (`{initiator.name}`) {action} {target.mention} (`{target.name}`){extra}{reason}"
 
     #- Setup
     load_dotenv(".env")
 
     intents = discord.Intents.default()
-    # intents.message_content = True
+    intents.moderation = True
+    intents.message_content = True
 
     bot = commands.Bot(command_prefix="", intents=intents)
 
@@ -46,8 +54,35 @@ def main():
     @bot.event
     async def on_message(message: discord.Message):
         # await bot.tree.sync()
+        # print(f"{message.author}: {message.content}")
         if message.author == bot.user and message.type == discord.MessageType.pins_add:
             await message.delete()
+
+
+    @bot.event
+    async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
+        reason = entry.reason if entry.reason else None
+        initiator = await bot.fetch_user(entry.user_id)
+        if entry.action == discord.AuditLogAction.member_update and entry.changes.after.timed_out_until:
+            target = await bot.fetch_user(entry.target.id)
+            until = int(entry.changes.after.timed_out_until.timestamp())
+            message = await build_log(initiator, target, "timed out", reason, f"until <t:{until}:f>")
+            await mod_log(entry.guild, message)
+        elif entry.action == discord.AuditLogAction.ban:
+            target = await bot.fetch_user(entry.target.id)
+            message = await build_log(initiator, target, "banned", reason)
+            await mod_log(entry.guild, message)
+        elif entry.action == discord.AuditLogAction.kick:
+            target = await bot.fetch_user(entry.target.id)
+            message = await build_log(initiator, target, "kicked", reason)
+            await mod_log(entry.guild, message)
+
+
+    @bot.tree.command(
+        name="test"
+    )
+    async def test(interaction: discord.Interaction, user: discord.User=None, channel: discord.TextChannel=None):
+        await interaction.response.send_message(f"{user.name} {user.global_name} {user.display_name} {user.mention} {user.id}")
 
 
     @bot.tree.context_menu(
