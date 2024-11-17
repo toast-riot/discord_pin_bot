@@ -8,6 +8,7 @@ def main():
     async def channel_by_name(guild: discord.Guild, name: str):
         return discord.utils.get(guild.text_channels, name=name)
 
+
     async def message_pin_or_unpin(interaction: discord.Interaction, message: discord.Message):
         if message.channel.permissions_for(message.guild.me).manage_messages == False:
             await response_followup(interaction, "This bot does not have permission to pin messages here")
@@ -24,25 +25,41 @@ def main():
                     return
         await response_followup(interaction, f"Message {'un' if pinned else ''}pinned")
 
+
     async def response_followup(interaction: discord.Interaction, content: str):
         await (await interaction.original_response()).edit(content=content)
 
+
     async def mod_log(guild: discord.Guild, message: str):
         await guild.text_channels[0].send(message, allowed_mentions = discord.AllowedMentions(users=False))
+
 
     async def build_log(initiator: discord.User, action: str, target: discord.User, reason: str = None, extra: str = None):
         reason = f" with reason `{reason}`" if reason else ""
         extra = f" {extra}" if extra else ""
         return f"{initiator.mention} (`{initiator.name}`) {action} {target.mention} (`{target.name}`){extra}{reason}"
 
+
+    async def pinboard(interaction: discord.Interaction, message: discord.Message):
+        embed = discord.Embed(
+            title="title",
+            description=message.content,
+            color = 0x2b2d31,
+            url=message.jump_url,
+            timestamp=message.created_at
+        )
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        embed.set_footer(text=f"#{message.channel.name}")
+        if message.attachments:
+            embed.set_image(url=message.attachments[0].url)
+        if message.embeds:
+            embed.set_image(url=message.embeds[0].url)
+        pin_message = await message.channel.send(embed=embed)
+        await response_followup(interaction, f"Message pinned to <#{pin_message.channel.id}>")
+
+
     #- Setup
     load_dotenv(".env")
-
-    intents = discord.Intents.default()
-    intents.moderation = True
-    intents.message_content = True
-
-    bot = commands.Bot(command_prefix="", intents=intents)
 
     CONFIG = {
         "mod_log_channel": getenv("MOD_LOG_CHANNEL"),
@@ -50,11 +67,19 @@ def main():
         "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL")
     }
 
+    intents = discord.Intents.default()
+    intents.moderation = True
+    intents.message_content = True
+
+    bot = commands.Bot(command_prefix="", intents=intents)
+
+
 
     #- Main
     @bot.event
     async def on_ready():
         print(f"Connected => {bot.user}")
+
 
     @bot.event
     async def on_message(message: discord.Message):
@@ -99,27 +124,35 @@ def main():
 
 
     @bot.tree.context_menu(
-        name="Pin / Unpin Message"
+        name="Pin Message"
     )
-    async def pin_message_context(interaction: discord.Interaction, message: discord.Message):
+    async def channel_pin_message_context(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer()
-        await message_pin_or_unpin(interaction, message)
+        await pinboard(interaction, message)
 
 
-    @bot.tree.command(
-        name="count_pins",
-        description="Get the number of pinned messages in a channel",
-    )
-    async def count_pins(interaction: discord.Interaction, channel: discord.TextChannel = None):
-        await interaction.response.defer()
-        if channel is None:
-            channel = interaction.channel
-        try:
-            pins = await channel.pins()
-        except discord.errors.Forbidden:
-            await response_followup(interaction, f"This bot does not have permission to access <#{channel.id}>")
-            return
-        await response_followup(interaction, f"<#{channel.id}> has {len(pins)}/50 pinned messages")
+    # @bot.tree.command(
+    #     name="count_pins",
+    #     description="Get the number of pinned messages in a channel",
+    # )
+    # async def count_pins(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    #     await interaction.response.defer()
+    #     if channel is None:
+    #         channel = interaction.channel
+    #     try:
+    #         pins = await channel.pins()
+    #     except discord.errors.Forbidden:
+    #         await response_followup(interaction, f"This bot does not have permission to access <#{channel.id}>")
+    #         return
+    #     await response_followup(interaction, f"<#{channel.id}> has {len(pins)}/50 pinned messages")
+
+
+    # @bot.tree.context_menu(
+    #     name="Pin / Unpin Message"
+    # )
+    # async def pin_message_context(interaction: discord.Interaction, message: discord.Message):
+    #     await interaction.response.defer()
+    #     await message_pin_or_unpin(interaction, message)
 
 
     #- Start
