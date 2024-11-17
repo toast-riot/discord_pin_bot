@@ -5,14 +5,13 @@ from discord.ext import commands
 
 
 def main():
+    async def channel_by_name(guild: discord.Guild, name: str):
+        return discord.utils.get(guild.text_channels, name=name)
+
     async def message_pin_or_unpin(interaction: discord.Interaction, message: discord.Message):
         if message.channel.permissions_for(message.guild.me).manage_messages == False:
             await response_followup(interaction, "This bot does not have permission to pin messages here")
             return
-        # if (message.author == bot.user and (message.type == discord.MessageType.context_menu_command or message.type == discord.MessageType.chat_input_command) and message.interaction_metadata.user == interaction.user):
-        #     await message.delete()
-        #     await (await interaction.original_response()).delete()
-        #     return
         pinned = message.pinned
         if pinned:
             await message.unpin()
@@ -31,7 +30,7 @@ def main():
     async def mod_log(guild: discord.Guild, message: str):
         await guild.text_channels[0].send(message, allowed_mentions = discord.AllowedMentions(users=False))
 
-    async def build_log(initiator: discord.User, target: discord.User, action: str, reason: str = None, extra: str = None):
+    async def build_log(initiator: discord.User, action: str, target: discord.User, reason: str = None, extra: str = None):
         reason = f" with reason `{reason}`" if reason else ""
         extra = f" {extra}" if extra else ""
         return f"{initiator.mention} (`{initiator.name}`) {action} {target.mention} (`{target.name}`){extra}{reason}"
@@ -44,6 +43,12 @@ def main():
     intents.message_content = True
 
     bot = commands.Bot(command_prefix="", intents=intents)
+
+    CONFIG = {
+        "mod_log_channel": getenv("MOD_LOG_CHANNEL"),
+        "pins_channel": getenv("PINS_CHANNEL"),
+        "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL")
+    }
 
 
     #- Main
@@ -61,21 +66,29 @@ def main():
 
     @bot.event
     async def on_audit_log_entry_create(entry: discord.AuditLogEntry):
-        reason = entry.reason if entry.reason else None
-        initiator = await bot.fetch_user(entry.user_id)
+        message = {
+            "initiator": None,
+            "action": None,
+            "target": None,
+            "reason": entry.reason if entry.reason else None,
+            "extra": None
+        }
+
         if entry.action == discord.AuditLogAction.member_update and entry.changes.after.timed_out_until:
-            target = await bot.fetch_user(entry.target.id)
             until = int(entry.changes.after.timed_out_until.timestamp())
-            message = await build_log(initiator, target, "timed out", reason, f"until <t:{until}:f>")
-            await mod_log(entry.guild, message)
+            message["extra"] = f"until <t:{until}:f>"
+            message["action"] = "timed out"
         elif entry.action == discord.AuditLogAction.ban:
-            target = await bot.fetch_user(entry.target.id)
-            message = await build_log(initiator, target, "banned", reason)
-            await mod_log(entry.guild, message)
+            message["action"] = "banned"
         elif entry.action == discord.AuditLogAction.kick:
-            target = await bot.fetch_user(entry.target.id)
-            message = await build_log(initiator, target, "kicked", reason)
-            await mod_log(entry.guild, message)
+            message["action"] = "kicked"
+        else:
+            return
+
+        message["initiator"] = await bot.fetch_user(entry.user_id)
+        message["target"] = await bot.fetch_user(entry.target.id)
+        message = await build_log(**message)
+        await mod_log(entry.guild, message)
 
 
     @bot.tree.command(
