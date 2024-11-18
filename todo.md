@@ -6,3 +6,5 @@
 - Permission checks
 - ~~Use forwarding~~ (very impractical)
 - Set embed color to user's role color?
+- Use standard permission checks
+- Set up proper permissions in developer portal
