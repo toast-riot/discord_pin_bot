@@ -2,6 +2,7 @@ from os import getenv
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
+from urllib.parse import urlparse
 
 
 def main():
@@ -25,6 +26,36 @@ def main():
     #     await response_followup(interaction, f"Message {'un' if pinned else ''}pinned")
 
 
+    async def get_embed(message: discord.Message):
+        embed = discord.Embed(
+            description = message.content,
+            color = 0x2b2d31,
+            # timestamp = message.created_at
+        )
+        embed.add_field(name="", value="", inline=False) # Spacer
+
+        if message.embeds:
+            data = message.embeds[0]
+            if data.type == "image":
+                embed.set_image(url=data.url)
+
+        if message.attachments:
+            attachment = message.attachments[0]
+            path = urlparse(attachment.url).path
+            if path.lower().endswith(("png", "jpeg", "jpg", "gif", "webp")):
+                embed.set_image(url=attachment.url)
+            else:
+                embed.add_field(name="Attachment", value=f"-# {attachment.url}", inline=False)
+
+        embed.add_field(name="User", value=f"-# {message.author.mention}")
+        embed.add_field(name="Link", value=f"-# {message.jump_url}")
+
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        # embed.set_footer(text=f"#{message.channel.name}")
+
+        return embed
+
+
     async def response_followup(interaction: discord.Interaction, content: str):
         await (await interaction.original_response()).edit(content=content)
 
@@ -41,26 +72,13 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
-        embed = discord.Embed (
-            description=message.content,
-            color = 0x2b2d31,
-            timestamp=message.created_at
-        )
-        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-        embed.add_field(name="", value="", inline=False)
-        embed.add_field(name="Author", value=f"{message.author.mention}")
-        embed.add_field(name="Actions", value=f"[Jump to message]({message.jump_url})")
-        embed.set_footer(text=f"#{message.channel.name}")
+        embed = await get_embed(message)
 
-        if message.attachments:
-            embed.set_image(url=message.attachments[0].url)
-        if message.embeds:
-            embed.set_image(url=message.embeds[0].url)
         if message.channel.is_nsfw():
             pin_channel = await channel_by_name(message.guild, CONFIG["nsfw_pins_channel"])
         else:
             pin_channel = await channel_by_name(message.guild, CONFIG["pins_channel"])
-        pin_message = await pin_channel.send(embed=embed)
+        pin_message = await pin_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
         await response_followup(interaction, f"Message pinned to <#{pin_message.channel.id}>")
 
 

@@ -4,3 +4,5 @@
 - Pinboard user + message ID?
 - `channel_by_name` caching (is it necessary?)
 - Permission checks
+- ~~Use forwarding~~ (very impractical)
+- Set embed color to user's role color?
