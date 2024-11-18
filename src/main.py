@@ -8,22 +8,21 @@ def main():
     async def channel_by_name(guild: discord.Guild, name: str):
         return discord.utils.get(guild.text_channels, name=name)
 
-
-    async def message_pin_or_unpin(interaction: discord.Interaction, message: discord.Message):
-        if message.channel.permissions_for(message.guild.me).manage_messages == False:
-            await response_followup(interaction, "This bot does not have permission to pin messages here")
-            return
-        pinned = message.pinned
-        if pinned:
-            await message.unpin()
-        else:
-            try:
-                await message.pin()
-            except discord.errors.HTTPException as e:
-                if e.code == 30003:
-                    await response_followup(interaction, "Pin limit reached")
-                    return
-        await response_followup(interaction, f"Message {'un' if pinned else ''}pinned")
+    # async def message_pin_or_unpin(interaction: discord.Interaction, message: discord.Message):
+    #     if message.channel.permissions_for(message.guild.me).manage_messages == False:
+    #         await response_followup(interaction, "This bot does not have permission to pin messages here")
+    #         return
+    #     pinned = message.pinned
+    #     if pinned:
+    #         await message.unpin()
+    #     else:
+    #         try:
+    #             await message.pin()
+    #         except discord.errors.HTTPException as e:
+    #             if e.code == 30003:
+    #                 await response_followup(interaction, "Pin limit reached")
+    #                 return
+    #     await response_followup(interaction, f"Message {'un' if pinned else ''}pinned")
 
 
     async def response_followup(interaction: discord.Interaction, content: str):
@@ -31,7 +30,8 @@ def main():
 
 
     async def mod_log(guild: discord.Guild, message: str):
-        await guild.text_channels[0].send(message, allowed_mentions = discord.AllowedMentions(users=False))
+        mod_log_channel = await channel_by_name(guild, CONFIG["mod_log_channel"])
+        await mod_log_channel.send(message, allowed_mentions = discord.AllowedMentions(users=False))
 
 
     async def build_log(initiator: discord.User, action: str, target: discord.User, reason: str = None, extra: str = None):
@@ -82,11 +82,12 @@ def main():
 
 
     @bot.event
-    async def on_message(message: discord.Message):
+    async def on_message(message: discord.Message): # This stops the bot checking for commands
+        pass
         # await bot.tree.sync()
         # print(f"{message.author}: {message.content}")
-        if message.author == bot.user and message.type == discord.MessageType.pins_add:
-            await message.delete()
+        # if message.author == bot.user and message.type == discord.MessageType.pins_add:
+        #     await message.delete()
 
 
     @bot.event
