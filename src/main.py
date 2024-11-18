@@ -41,20 +41,26 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
-        embed = discord.Embed(
-            title="title",
+        embed = discord.Embed (
             description=message.content,
             color = 0x2b2d31,
-            url=message.jump_url,
             timestamp=message.created_at
         )
         embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        embed.add_field(name="", value="", inline=False)
+        embed.add_field(name="Author", value=f"{message.author.mention}")
+        embed.add_field(name="Actions", value=f"[Jump to message]({message.jump_url})")
         embed.set_footer(text=f"#{message.channel.name}")
+
         if message.attachments:
             embed.set_image(url=message.attachments[0].url)
         if message.embeds:
             embed.set_image(url=message.embeds[0].url)
-        pin_message = await message.channel.send(embed=embed)
+        if message.channel.is_nsfw():
+            pin_channel = await channel_by_name(message.guild, CONFIG["nsfw_pins_channel"])
+        else:
+            pin_channel = await channel_by_name(message.guild, CONFIG["pins_channel"])
+        pin_message = await pin_channel.send(embed=embed)
         await response_followup(interaction, f"Message pinned to <#{pin_message.channel.id}>")
 
 
