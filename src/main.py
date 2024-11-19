@@ -40,17 +40,17 @@ def main():
         main_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
         # embed.set_footer(text=f"#{message.channel.name}")
 
-        return [main_embed, secondary_embed]
+        return secondary_embed
 
 
-    async def new_webhook(channel: discord.TextChannel, username: str, avatar_url: str, content):
+    async def webhook_send(channel: discord.TextChannel, username: str, avatar_url: str, content, embed=None):
         webhooks = await channel.webhooks()
         webhook = discord.utils.get(webhooks, name='temp')
 
         if not webhook:
             webhook = await channel.create_webhook(name='temp', avatar=None)
 
-        await webhook.send(content=content, username=username, avatar_url=avatar_url)
+        await webhook.send(content=content, username=username, avatar_url=avatar_url, embed=embed)
         await webhook.delete()
 
 
@@ -70,14 +70,16 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
-        embeds = await get_embed(message)
+        embed = await get_embed(message)
 
         if message.channel.is_nsfw():
             pin_channel = await channel_by_name(message.guild, CONFIG["nsfw_pins_channel"])
         else:
             pin_channel = await channel_by_name(message.guild, CONFIG["pins_channel"])
-        pin_message = await pin_channel.send(embeds=embeds, allowed_mentions=discord.AllowedMentions.none())
-        await response_followup(interaction, f"Message pinned to <#{pin_message.channel.id}>")
+
+        await webhook_send(pin_channel, message.author.display_name, message.author.display_avatar.url, message.content, embed)
+        # pin_message = await pin_channel.send(embeds=embeds, allowed_mentions=discord.AllowedMentions.none())
+        await response_followup(interaction, f"Message pinned to {pin_channel.mention}")
 
 
     #- Setup
@@ -142,7 +144,7 @@ def main():
     )
     async def test(interaction: discord.Interaction, user: discord.User=None, channel: discord.TextChannel=None):
         # await interaction.response.send_message(f"{user.name} {user.global_name} {user.display_name} {user.mention} {user.id}")
-        await new_webhook(channel, user.name, user.display_avatar.url, "Test")
+        await webhook_send(channel, user.name, user.display_avatar.url, "Test")
         await interaction.response.send_message("Done")
 
 
