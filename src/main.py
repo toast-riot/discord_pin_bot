@@ -13,8 +13,7 @@ def main():
     async def get_embed(message: discord.Message):
         embed = discord.Embed(
             description = message.content,
-            color = 0x2b2d31,
-            # timestamp = message.created_at
+            color = 0x2b2d31
         )
         embed.add_field(name="", value="", inline=False) # Spacer
 
@@ -31,14 +30,9 @@ def main():
             else:
                 embed.add_field(name="Attachment", value=f"-# {attachment.url}", inline=False)
 
-        secondary_embed = discord.Embed(
-            color = 0x2b2d31
-        )
         embed.add_field(name="User", value=f"-# {message.author.mention}")
         embed.add_field(name="Link", value=f"-# {message.jump_url}")
-
         embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-        # embed.set_footer(text=f"#{message.channel.name}")
 
         return embed
 
@@ -59,14 +53,30 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
+
+        should_be_nsfw = message.channel.is_nsfw()
+        if should_be_nsfw:
+            channel_to_get = CONFIG["nsfw_pins_channel"]
+        else:
+            channel_to_get = CONFIG["pins_channel"]
+
+        pin_channel = await channel_by_name(message.guild, channel_to_get)
+
+        if not pin_channel:
+            await response_followup(interaction, f"Pinboard channel not found (looking for `#{channel_to_get})`")
+            return
+        if not pin_channel.permissions_for(message.guild.me).send_messages:
+            await response_followup(interaction, f"{CONFIG["permission_error"]} pin messages to {pin_channel.mention}")
+            return
+        if not pin_channel.permissions_for(message.guild.me).embed_links:
+            await response_followup(interaction, f"{CONFIG["permission_error"]} embed links in {pin_channel.mention}")
+        if should_be_nsfw and not pin_channel.is_nsfw():
+            await response_followup(interaction, "{pin_channel.mention} must be a NSFW channel")
+            return
+
         embed = await get_embed(message)
 
-        if message.channel.is_nsfw():
-            pin_channel = await channel_by_name(message.guild, CONFIG["nsfw_pins_channel"])
-        else:
-            pin_channel = await channel_by_name(message.guild, CONFIG["pins_channel"])
-
-        pin_message = await pin_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        await pin_channel.send(embed=embed)
         await response_followup(interaction, f"Message pinned to {pin_channel.mention}")
 
 
@@ -76,7 +86,8 @@ def main():
     CONFIG = {
         "mod_log_channel": getenv("MOD_LOG_CHANNEL"),
         "pins_channel": getenv("PINS_CHANNEL"),
-        "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL")
+        "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL"),
+        "permission_error": getenv("PERMISSION_ERROR")
     }
 
     intents = discord.Intents.default()
@@ -132,7 +143,7 @@ def main():
     )
     async def test(interaction: discord.Interaction, user: discord.User=None, channel: discord.TextChannel=None):
         # await interaction.response.send_message(f"{user.name} {user.global_name} {user.display_name} {user.mention} {user.id}")
-        await webhook_send(channel, user.name, user.display_avatar.url, "Test")
+        # await webhook_send(channel, user.name, user.display_avatar.url, "Test")
         await interaction.response.send_message("Done")
 
 
