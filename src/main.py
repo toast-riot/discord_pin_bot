@@ -11,47 +11,36 @@ def main():
 
 
     async def get_embed(message: discord.Message):
-        main_embed = discord.Embed(
+        embed = discord.Embed(
             description = message.content,
             color = 0x2b2d31,
             # timestamp = message.created_at
         )
-        # main_embed.add_field(name="", value="", inline=False) # Spacer
+        embed.add_field(name="", value="", inline=False) # Spacer
 
         if message.embeds:
             data = message.embeds[0]
             if data.type == "image":
-                main_embed.set_image(url=data.url)
+                embed.set_image(url=data.url)
 
         if message.attachments:
             attachment = message.attachments[0]
             path = urlparse(attachment.url).path
             if path.lower().endswith(("png", "jpeg", "jpg", "gif", "webp")):
-                main_embed.set_image(url=attachment.url)
+                embed.set_image(url=attachment.url)
             else:
-                main_embed.add_field(name="Attachment", value=f"-# {attachment.url}", inline=False)
+                embed.add_field(name="Attachment", value=f"-# {attachment.url}", inline=False)
 
         secondary_embed = discord.Embed(
             color = 0x2b2d31
         )
-        secondary_embed.add_field(name="User", value=f"-# {message.author.mention}")
-        secondary_embed.add_field(name="Link", value=f"-# {message.jump_url}")
+        embed.add_field(name="User", value=f"-# {message.author.mention}")
+        embed.add_field(name="Link", value=f"-# {message.jump_url}")
 
-        main_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
+        embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
         # embed.set_footer(text=f"#{message.channel.name}")
 
-        return secondary_embed
-
-
-    async def webhook_send(channel: discord.TextChannel, username: str, avatar_url: str, content, embed=None):
-        webhooks = await channel.webhooks()
-        webhook = discord.utils.get(webhooks, name='temp')
-
-        if not webhook:
-            webhook = await channel.create_webhook(name='temp', avatar=None)
-
-        await webhook.send(content=content, username=username, avatar_url=avatar_url, embed=embed)
-        await webhook.delete()
+        return embed
 
 
     async def response_followup(interaction: discord.Interaction, content: str):
@@ -77,8 +66,7 @@ def main():
         else:
             pin_channel = await channel_by_name(message.guild, CONFIG["pins_channel"])
 
-        await webhook_send(pin_channel, message.author.display_name, message.author.display_avatar.url, message.content, embed)
-        # pin_message = await pin_channel.send(embeds=embeds, allowed_mentions=discord.AllowedMentions.none())
+        pin_message = await pin_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
         await response_followup(interaction, f"Message pinned to {pin_channel.mention}")
 
 
