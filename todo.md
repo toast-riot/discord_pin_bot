@@ -1,10 +1,7 @@
 - Error handling, especially in `channel_by_name`
-- Embed content and URL tests
 - Pinboard deletion method
-- Pinboard user + message ID?
 - `channel_by_name` caching (is it necessary?)
 - Permission checks
-- ~~Use forwarding~~ (very impractical)
-- Set embed color to user's role color?
-- Use standard permission checks
+- Use standard permission checks?
 - Set up proper permissions in developer portal
+- Pinboard NSFW channels testing
