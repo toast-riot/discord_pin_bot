@@ -1,5 +1,0 @@
-- Error handling, especially in `channel_by_name`
-- Permission checks
-- Use standard permission checks?
-- Set up proper permissions in developer portal
-- Pinboard NSFW channels testing
