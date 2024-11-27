@@ -1,6 +1,5 @@
 - Error handling, especially in `channel_by_name`
 - Pinboard deletion method
-- `channel_by_name` caching (is it necessary?)
 - Permission checks
 - Use standard permission checks?
 - Set up proper permissions in developer portal
