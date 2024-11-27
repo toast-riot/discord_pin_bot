@@ -51,6 +51,7 @@ def main():
 
         return embed
 
+
     async def mod_log(guild: discord.Guild, message: str):
         mod_log_channel = await channel_by_name(guild, CONFIG["mod_log_channel"])
         await mod_log_channel.send(message, allowed_mentions = discord.AllowedMentions(users=False))
@@ -60,6 +61,10 @@ def main():
         reason = f" with reason `{reason}`" if reason else ""
         extra = f" {extra}" if extra else ""
         return f"{initiator.mention} (`{initiator.name}`) {action} {target.mention} (`{target.name}`){extra}{reason}"
+
+
+    async def perm_error(interaction: discord.Interaction, message: str):
+        await interaction.edit_original_response(content=f"{CONFIG["permission_error_message"]} {message}")
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
@@ -72,12 +77,12 @@ def main():
 
         pin_channel = await channel_by_name(message.guild, channel_to_get)
 
-
+        # Check if the message is from the bot, and allow users to delete pins of their own messages
         if message.author == bot.user: # Imagine if Python had null-conditional operators... alas the spaghetti must continue
             fields = message.embeds and message.embeds[0] and message.embeds[0].fields or None
             if fields and len(fields) > 1 and fields[1] and fields[1].value and interaction.user.mention in fields[1].value:
                 await message.delete()
-                await interaction.response.send_message(content="Message deleted", ephemeral=True)
+                await interaction.response.send_message(content="Pin deleted", ephemeral=True)
                 return
             await interaction.response.send_message(content="Cannot pin this message", ephemeral=True)
             return
@@ -85,23 +90,32 @@ def main():
         await interaction.response.defer()
 
         if not pin_channel:
-            await interaction.edit_original_response(content=f"Pinboard channel not found (looking for `#{channel_to_get})`")
+            await interaction.edit_original_response(content=f"Pinboard channel not found (looking for `#{channel_to_get}`)")
+            return
+        if not pin_channel.permissions_for(message.guild.me).view_channel:
+            await perm_error(interaction, f"view {pin_channel.mention}")
             return
         if not pin_channel.permissions_for(message.guild.me).send_messages:
-            await interaction.edit_original_response(content=f"{CONFIG["permission_error_message"]} pin messages to {pin_channel.mention}")
+            await perm_error(interaction, f"send messages in {pin_channel.mention}")
             return
         if not pin_channel.permissions_for(message.guild.me).embed_links:
-            await interaction.edit_original_response(content=f"{CONFIG["permission_error_message"]} embed links in {pin_channel.mention}")
+            await perm_error(interaction, f"embed links in {pin_channel.mention}")
+            return
         if should_be_nsfw and not pin_channel.is_nsfw():
             await interaction.edit_original_response(content=f"{pin_channel.mention} must be marked as NSFW")
             return
 
         # Check if message is already pinned
-        async for pin_message in pin_channel.history(limit=CONFIG["duplicate_pins_check_count"]):
-            current = pin_message.embeds and pin_message.embeds[0] and pin_message.embeds[0].url or None
-            if current == message.jump_url:
-                await interaction.edit_original_response(content=f"Message is already pinned at {pin_message.jump_url}")
+        if CONFIG["duplicate_pins_check_count"] > 0:
+            if not pin_channel.permissions_for(message.guild.me).read_message_history:
+                await perm_error(interaction, f"read message history in {pin_channel.mention}")
                 return
+
+            async for pin_message in pin_channel.history(limit=CONFIG["duplicate_pins_check_count"]):
+                current = pin_message.embeds and pin_message.embeds[0] and pin_message.embeds[0].url or None
+                if current == message.jump_url:
+                    await interaction.edit_original_response(content=f"Message is already pinned at {pin_message.jump_url}")
+                    return
 
         embed = await get_embed(message)
         await pin_channel.send(embed=embed)
@@ -166,15 +180,6 @@ def main():
         message["target"] = await bot.fetch_user(entry.target.id)
         message = await build_log(**message)
         await mod_log(entry.guild, message)
-
-
-    @bot.tree.command(
-        name="test"
-    )
-    async def test(interaction: discord.Interaction, user: discord.User=None, channel: discord.TextChannel=None):
-        # await interaction.response.send_message(f"{user.name} {user.global_name} {user.display_name} {user.mention} {user.id}")
-        # await webhook_send(channel, user.name, user.display_avatar.url, "Test")
-        await interaction.response.send_message("Done")
 
 
     @bot.tree.context_menu(
