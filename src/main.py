@@ -5,6 +5,20 @@ from discord.ext import commands
 from urllib.parse import urlparse
 
 
+import time
+laptime = None
+
+async def lap_start():
+    global laptime
+    laptime = time.perf_counter()
+
+async def lap_end(message: str = None):
+    global laptime
+    delta = time.perf_counter() - laptime
+    print(f"Lap [{message}]: {delta:.4f}s")
+    laptime = time.perf_counter()
+
+
 def main():
     async def channel_by_name(guild: discord.Guild, name: str):
         return discord.utils.get(guild.text_channels, name=name)
