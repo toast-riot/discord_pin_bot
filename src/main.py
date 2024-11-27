@@ -27,7 +27,8 @@ def main():
     async def get_embed(message: discord.Message):
         embed = discord.Embed(
             description = message.content,
-            color = 0x2b2d31
+            color = 0x2b2d31,
+            url=message.jump_url # Used to quickly find duplicate pins
         )
         embed.add_field(name="", value="", inline=False) # Spacer
 
@@ -76,21 +77,29 @@ def main():
 
         pin_channel = await channel_by_name(message.guild, channel_to_get)
 
+        # Check if message is already pinned
+        async for pin_message in pin_channel.history(limit=CONFIG["duplicate_pins_check_count"]):
+            current = pin_message.embeds and pin_message.embeds[0] and pin_message.embeds[0].url or None
+            if current == message.jump_url:
+                await response_followup(interaction, f"Message is already pinned at {pin_message.jump_url}")
+                return
+
+        # Other checks
         if not pin_channel:
             await response_followup(interaction, f"Pinboard channel not found (looking for `#{channel_to_get})`")
             return
         if not pin_channel.permissions_for(message.guild.me).send_messages:
-            await response_followup(interaction, f"{CONFIG["permission_error"]} pin messages to {pin_channel.mention}")
+            await response_followup(interaction, f"{CONFIG["permission_error_message"]} pin messages to {pin_channel.mention}")
             return
         if not pin_channel.permissions_for(message.guild.me).embed_links:
-            await response_followup(interaction, f"{CONFIG["permission_error"]} embed links in {pin_channel.mention}")
+            await response_followup(interaction, f"{CONFIG["permission_error_message"]} embed links in {pin_channel.mention}")
         if should_be_nsfw and not pin_channel.is_nsfw():
-            await response_followup(interaction, "{pin_channel.mention} must be a NSFW channel")
+            await response_followup(interaction, "{pin_channel.mention} must be marked as NSFW")
             return
 
         embed = await get_embed(message)
-
         await pin_channel.send(embed=embed)
+
         await response_followup(interaction, f"Message pinned to {pin_channel.mention}")
 
 
@@ -101,7 +110,8 @@ def main():
         "mod_log_channel": getenv("MOD_LOG_CHANNEL"),
         "pins_channel": getenv("PINS_CHANNEL"),
         "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL"),
-        "permission_error": getenv("PERMISSION_ERROR")
+        "permission_error_message": getenv("PERMISSION_ERROR_MESSAGE"),
+        "duplicate_pins_check_count": int(getenv("DUPLICATE_PINS_CHECK_COUNT"))
     }
 
     intents = discord.Intents.default()
@@ -131,7 +141,7 @@ def main():
             "initiator": None,
             "action": None,
             "target": None,
-            "reason": entry.reason if entry.reason else None,
+            "reason": entry.reason or None,
             "extra": None
         }
 
