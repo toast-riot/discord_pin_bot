@@ -5,20 +5,6 @@ from discord.ext import commands
 from urllib.parse import urlparse
 
 
-import time
-laptime = None
-
-async def lap_start():
-    global laptime
-    laptime = time.perf_counter()
-
-async def lap_end(message: str = None):
-    global laptime
-    delta = time.perf_counter() - laptime
-    print(f"Lap [{message}]: {delta:.4f}s")
-    laptime = time.perf_counter()
-
-
 def main():
     async def channel_by_name(guild: discord.Guild, name: str):
         return discord.utils.get(guild.text_channels, name=name)
@@ -54,6 +40,15 @@ def main():
 
     async def mod_log(guild: discord.Guild, message: str):
         mod_log_channel = await channel_by_name(guild, CONFIG["mod_log_channel"])
+        if not mod_log_channel:
+            print(f"WARNING: Mod log channel not found (looking for #{CONFIG['mod_log_channel']})")
+            return
+        if not mod_log_channel.permissions_for(guild.me).view_channel:
+            print(f"WARNING: Missing permissions to view #{CONFIG['mod_log_channel']}")
+            return
+        if not mod_log_channel.permissions_for(guild.me).send_messages:
+            print(f"WARNING: Missing permissions to send messages in #{CONFIG['mod_log_channel']}")
+            return
         await mod_log_channel.send(message, allowed_mentions = discord.AllowedMentions(users=False))
 
 
