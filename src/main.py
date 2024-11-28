@@ -73,9 +73,11 @@ def main():
         pin_channel = await channel_by_name(message.guild, channel_to_get)
 
         # Check if the message is from the bot, and allow users to delete pins of their own messages
-        if message.author == bot.user: # Imagine if Python had null-conditional operators... alas the spaghetti must continue
+        if message.author.bot: # Imagine if Python had null-conditional operators... alas the spaghetti must continue
             fields = message.embeds and message.embeds[0] and message.embeds[0].fields or None
-            if fields and len(fields) > 1 and fields[1] and fields[1].value and interaction.user.mention in fields[1].value:
+            if fields:
+                user = discord.utils.get(fields, name="User")
+                if user and user.value and interaction.user.mention in user.value:
                 await message.delete()
                 await interaction.response.send_message(content="Pin deleted", ephemeral=True)
                 return
@@ -131,7 +133,7 @@ def main():
 
     intents = discord.Intents.default()
     intents.moderation = True
-    intents.message_content = True
+    intents.message_content = True # Mostly just for consistency
 
     bot = commands.Bot(command_prefix="", intents=intents)
 
@@ -141,6 +143,10 @@ def main():
     @bot.event
     async def on_ready():
         print(f"Connected => {bot.user}")
+
+        for guild in bot.guilds:
+            if not guild.me.guild_permissions.view_audit_log:
+                print(f"WARNING: Missing permissions to view audit log in {guild.name}")
 
 
     @bot.event
