@@ -63,7 +63,7 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
-        await interaction.response.defer() #! This is the line
+        await interaction.response.defer()
 
         should_be_nsfw = message.channel.is_nsfw()
         if should_be_nsfw:
@@ -205,33 +205,6 @@ def main():
     #             return
     #     await interaction.edit_original_response(content="Message is not recognized as a pinned message")
     #     return
-
-
-    @bot.tree.command(
-        name="pinall"
-    )
-    async def pinall(interaction: discord.Interaction):
-        if not interaction.user.resolved_permissions.administrator: return
-        await interaction.response.defer(ephemeral=True)
-
-        all_pins = []
-        for channel in interaction.guild.text_channels:
-            try:
-                all_pins.extend(await channel.pins())
-            except discord.Forbidden:
-                print(f"Missing permissions to view pins in {channel.name}")
-
-        all_pins.sort(key=lambda pin: pin.created_at)
-
-        print(all_pins)
-        for pin in all_pins:
-            print(pin.content)
-            await pinboard(interaction, pin)
-
-        for pin in all_pins:
-            await pin.unpin()
-
-        await interaction.edit_original_response(content="Done")
 
 
     #- Start
