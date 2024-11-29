@@ -65,7 +65,7 @@ def main():
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
         await interaction.response.defer()
 
-        should_be_nsfw = message.channel.is_nsfw()
+        should_be_nsfw = message.channel.is_nsfw() or message.channel.name in CONFIG["nsfw_channels"]
         if should_be_nsfw:
             channel_to_get = CONFIG["nsfw_pins_channel"]
         else:
@@ -85,7 +85,7 @@ def main():
         if not pin_channel.permissions_for(message.guild.me).embed_links:
             await perm_error(interaction, f"embed links in {pin_channel.mention}")
             return
-        if should_be_nsfw and not pin_channel.is_nsfw():
+        if CONFIG["nsfw_pin_channel_check_enabled"] and (should_be_nsfw and not pin_channel.is_nsfw()):
             await interaction.edit_original_response(content=f"{pin_channel.mention} must be marked as NSFW")
             return
 
@@ -115,7 +115,9 @@ def main():
         "pins_channel": getenv("PINS_CHANNEL"),
         "nsfw_pins_channel": getenv("NSFW_PINS_CHANNEL"),
         "permission_error_message": getenv("PERMISSION_ERROR_MESSAGE"),
-        "duplicate_pins_check_count": int(getenv("DUPLICATE_PINS_CHECK_COUNT"))
+        "duplicate_pins_check_count": int(getenv("DUPLICATE_PINS_CHECK_COUNT")),
+        "nsfw_channels": getenv("NSFW_CHANNELS").split(","),
+        "nsfw_pin_channel_check_enabled": getenv("NSFW_PIN_CHANNEL_CHECK_ENABLED").lower() == "true"
     }
 
     intents = discord.Intents.default()
@@ -173,7 +175,7 @@ def main():
     )
     async def sync(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        if not interaction.user.id == interaction.guild.owner_id:
+        if not interaction.user.guild_permissions.administrator:
             await interaction.edit_original_response(content="You must be an administrator to use this command")
             return
         await bot.tree.sync()
