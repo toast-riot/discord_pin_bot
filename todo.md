@@ -3,3 +3,4 @@
 - Automatically unpin messages when the original message is deleted
 - Timed-out users pinning permissions
 - User cannot use context commands in channels with no send message permission
+- Refactor everything
