@@ -63,6 +63,7 @@ def main():
 
 
     async def pinboard(interaction: discord.Interaction, message: discord.Message):
+        await interaction.response.defer() #! This is the line
 
         should_be_nsfw = message.channel.is_nsfw()
         if should_be_nsfw:
@@ -71,20 +72,6 @@ def main():
             channel_to_get = CONFIG["pins_channel"]
 
         pin_channel = await channel_by_name(message.guild, channel_to_get)
-
-        # Check if the message is from the bot, and allow users to delete pins of their own messages
-        if message.author.bot: # Imagine if Python had null-conditional operators... alas the spaghetti must continue
-            fields = message.embeds and message.embeds[0] and message.embeds[0].fields or None
-            if fields:
-                user = discord.utils.get(fields, name="User")
-                if user and user.value and interaction.user.mention in user.value:
-                await message.delete()
-                await interaction.response.send_message(content="Pin deleted", ephemeral=True)
-                return
-            await interaction.response.send_message(content="Cannot pin this message", ephemeral=True)
-            return
-
-        await interaction.response.defer()
 
         if not pin_channel:
             await interaction.edit_original_response(content=f"Pinboard channel not found (looking for `#{channel_to_get}`)")
@@ -152,8 +139,6 @@ def main():
     @bot.event
     async def on_message(message: discord.Message): # This intentionally prevents the bot checking for plaintext commands
         pass
-        # await bot.tree.sync()
-        # print(f"{message.author}: {message.content}")
 
 
     @bot.event
@@ -183,11 +168,70 @@ def main():
         await mod_log(entry.guild, message)
 
 
+    @bot.tree.command(
+        name="sync"
+    )
+    async def sync(interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        if not interaction.user.id == interaction.guild.owner_id:
+            await interaction.edit_original_response(content="You must be an administrator to use this command")
+            return
+        await bot.tree.sync()
+        await interaction.edit_original_response(content="Commands synced")
+
+
     @bot.tree.context_menu(
         name="Pin Message"
     )
     async def channel_pin_message_context(interaction: discord.Interaction, message: discord.Message):
         await pinboard(interaction, message)
+
+
+    # @bot.tree.context_menu(
+    #     name="Unpin Message"
+    # )
+    # async def channel_unpin_message_context(interaction: discord.Interaction, message: discord.Message):
+    #     await interaction.response.defer(ephemeral=True)
+    #     if message.author == bot.user:
+    #         fields = message.embeds and message.embeds[0] and message.embeds[0].fields or None
+    #         if fields:
+    #             user = discord.utils.get(fields, name="User")
+    #             if user and user.value:
+    #                 if interaction.user.mention in user.value:
+    #                     await message.delete()
+    #                     await interaction.edit_original_response(content="Pin removed")
+    #                     return
+    #             await interaction.edit_original_response(content="You are not the author of this pinned message")
+    #             return
+    #     await interaction.edit_original_response(content="Message is not recognized as a pinned message")
+    #     return
+
+
+    @bot.tree.command(
+        name="pinall"
+    )
+    async def pinall(interaction: discord.Interaction):
+        if not interaction.user.resolved_permissions.administrator: return
+        await interaction.response.defer(ephemeral=True)
+
+        all_pins = []
+        for channel in interaction.guild.text_channels:
+            try:
+                all_pins.extend(await channel.pins())
+            except discord.Forbidden:
+                print(f"Missing permissions to view pins in {channel.name}")
+
+        all_pins.sort(key=lambda pin: pin.created_at)
+
+        print(all_pins)
+        for pin in all_pins:
+            print(pin.content)
+            await pinboard(interaction, pin)
+
+        for pin in all_pins:
+            await pin.unpin()
+
+        await interaction.edit_original_response(content="Done")
 
 
     #- Start
